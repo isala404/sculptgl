@@ -78,6 +78,7 @@ class Scene {
     this._aiStyle = 'basic'; // Style setting: 'basic' or 'hairy cute'
     this._aiStrength = 50; // AI strength: 0-100
     this._aiSeed = Math.floor(Math.random() * 99000) + 1000; // Random seed: 1000-100000
+    this._aiPrompt = ''; // AI prompt
     
     // WebSocket connection for AI processing
     this._websocket = null;
@@ -355,7 +356,8 @@ class Scene {
       const settings = {
         style: this._aiStyle,
         strength: this._aiStrength,
-        seed: this._aiSeed
+        seed: this._aiSeed,
+        prompt: this._aiPrompt
       };
       this._websocket.send(JSON.stringify(settings));
     }
