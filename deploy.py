@@ -3,6 +3,7 @@ import json
 from pathlib import Path
 from io import BytesIO
 
+
 def download_models():
     from diffusers import AutoPipelineForImage2Image, LCMScheduler
     import torch
@@ -39,19 +40,20 @@ app.image = (
         "huggingface-hub",
     )
     .apt_install("curl")
+    .run_commands(
+        "mkdir -p /root/models",
+        "curl -L https://realtime-public-assets.s3.us-west-2.amazonaws.com/lora/hairy-cute.safetensors -o /root/models/hairy-cute.safetensors",
+    )
+    .run_function(download_models)
     .add_local_dir(
         Path(__file__).parent / "app",
         "/root/app",
         copy=True,
     )
-        .run_commands(
-        "mkdir -p /root/models",
-        "curl -L https://realtime-public-assets.s3.us-west-2.amazonaws.com/lora/hairy-cute.safetensors -o /root/models/hairy-cute.safetensors",
-    )
-    .run_function(download_models)
 )
 # Store user settings and connections
 users = {}
+
 
 def calculate_params(
     ai_strength,
@@ -66,6 +68,7 @@ def calculate_params(
         guidance_scale_max - guidance_scale_min
     )
     return strength, guidance_scale
+
 
 @app.function(
     max_containers=2,
@@ -91,13 +94,9 @@ def endpoint():
         variant="fp16",
     ).to("cuda")
 
-    pipeline.scheduler = LCMScheduler.from_config(
-        pipeline.scheduler.config
-    )
+    pipeline.scheduler = LCMScheduler.from_config(pipeline.scheduler.config)
     print("Loading LCM LoRA")
-    pipeline.load_lora_weights(
-        "latent-consistency/lcm-lora-sdv1-5", adapter_name="lcm"
-    )
+    pipeline.load_lora_weights("latent-consistency/lcm-lora-sdv1-5", adapter_name="lcm")
 
     # Setup DeepCacheSDHelper
     helper = DeepCacheSDHelper(pipe=pipeline)
@@ -170,7 +169,8 @@ def endpoint():
                     try:
                         settings = json.loads(message["text"])
                         if all(
-                            key in settings for key in ["style", "strength", "seed", "prompt"]
+                            key in settings
+                            for key in ["style", "strength", "seed", "prompt"]
                         ):
                             users[user_id]["settings"] = settings
                             try:
@@ -200,29 +200,38 @@ def endpoint():
                 ):  # Binary image
                     if users[user_id]["settings"] is None:
                         try:
-                            await websocket.send_json({"error": "Send JSON settings first"})
+                            await websocket.send_json(
+                                {"error": "Send JSON settings first"}
+                            )
                         except Exception as e:
                             print(f"Error sending settings error: {e}")
                             break
                     else:
-                        print("Processing image for user", user_id, "with settings", users[user_id]['settings'])
-                        settings = users[user_id]['settings']
+                        print(
+                            "Processing image for user",
+                            user_id,
+                            "with settings",
+                            users[user_id]["settings"],
+                        )
+                        settings = users[user_id]["settings"]
 
-                        if settings['style'] == 'hairy-cute':
+                        if settings["style"] == "hairy cute":
                             weights = [1.0, 0.8]
-                            settings['prompt'] += 'j_hairy'
+                            settings["prompt"] += "j_hairy"
                         else:
                             weights = [1.0, 1.0]
 
                         pipeline.set_adapters(adapters, adapter_weights=weights)
-                        generator = torch.manual_seed(settings['seed'])
-                        strength, guidance = calculate_params(settings['strength'])
+                        generator = torch.manual_seed(settings["seed"])
+                        strength, guidance = calculate_params(settings["strength"])
 
                         # Convert bytes to PIL Image
                         input_image = Image.open(BytesIO(message["bytes"]))
 
+                        input_image = input_image.resize((512, 512))
+
                         generated_image = pipeline(
-                            settings['prompt'],
+                            settings["prompt"],
                             image=input_image,
                             strength=strength,
                             guidance_scale=guidance,

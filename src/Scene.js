@@ -292,7 +292,16 @@ class Scene {
       var canvas = this._canvas;
       var screenshotImg = document.getElementById('canvas-screenshot');
       if (canvas && screenshotImg && this._websocket && this._websocket.readyState === WebSocket.OPEN) {
-        var dataURL = canvas.toDataURL('image/jpeg', 0.9);
+        // Create a temporary canvas for resizing
+        var tempCanvas = document.createElement('canvas');
+        var tempCtx = tempCanvas.getContext('2d');
+        tempCanvas.width = 512;
+        tempCanvas.height = 512;
+        
+        // Draw the original canvas scaled to 512x512
+        tempCtx.drawImage(canvas, 0, 0, 512, 512);
+        
+        var dataURL = tempCanvas.toDataURL('image/jpeg', 0.9);
         if (dataURL !== this._lastscreenshot) {
           this._lastscreenshot = dataURL;
           this._queueScreenshotForProcessing(dataURL, screenshotImg);
@@ -359,7 +368,8 @@ class Scene {
         seed: this._aiSeed,
         prompt: this._aiPrompt
       };
-      this._websocket.send(JSON.stringify(settings));
+      this._websocket.send(JSON.stringify(settings)); 
+      this._updateScreenshot();
     }
   }
 
@@ -465,6 +475,11 @@ class Scene {
     this._sendAISettings();
   }
 
+  setAIPrompt(prompt) {
+    this._aiPrompt = prompt;
+    this._sendAISettings();
+  }
+
   getAIStyle() {
     return this._aiStyle;
   }
@@ -475,6 +490,10 @@ class Scene {
 
   getAISeed() {
     return this._aiSeed;
+  }
+
+  getAIPrompt() {
+    return this._aiPrompt;
   }
 
   _drawScene() {

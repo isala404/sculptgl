@@ -66,8 +66,6 @@ class Gui {
     ctrls[idc++] = this._ctrlConfig = new GuiConfig(this._topbar, this);
     ctrls[idc++] = this._ctrlMesh = new GuiMesh(this._topbar, this);
 
-    // AI Settings Menu
-    this._ctrlAISettings = this.initAISettings(this._topbar);
 
     // Initialize the sidebar
     this._sidebar = this._guiMain.addRightSidebar();
@@ -85,6 +83,10 @@ class Gui {
     extra.addSlider('', this._main._pixelRatio, this.onPixelRatio.bind(this), 0.5, 2.0, 0.02);
 
     this.addAboutButton();
+
+    // AI Settings Menu
+    this._ctrlAISettings = this.initAISettings(this._topbar);
+    this.addAIPromptInput();
 
     this.updateMesh();
     this.setVisibility(true);
@@ -175,6 +177,90 @@ class Gui {
     });
   }
 
+  addAIPromptInput() {
+    var ctrlPrompt = this._topbar.addMenu();
+    ctrlPrompt.domContainer.style.position = 'relative';
+    
+    // Create input element
+    var promptInput = document.createElement('input');
+    promptInput.type = 'text';
+    promptInput.placeholder = 'Enter AI prompt...';
+    promptInput.value = this._main.getAIPrompt() || '';
+    promptInput.style.cssText = `
+      padding: 4px 8px;
+      border: 1px solid #ccc;
+      border-radius: 4px;
+      background: white;
+      color: black;
+      font-size: 12px;
+      width: 200px;
+      margin: 2px 4px;
+      outline: none;
+    `;
+    
+    // Prevent GUI framework from capturing events
+    promptInput.addEventListener('mousedown', (e) => {
+      e.stopPropagation();
+    });
+    
+    promptInput.addEventListener('mouseup', (e) => {
+      e.stopPropagation();
+    });
+    
+    promptInput.addEventListener('click', (e) => {
+      e.stopPropagation();
+      promptInput.focus();
+    });
+    
+    // Handle input changes
+    promptInput.addEventListener('input', (e) => {
+      e.stopPropagation();
+      this._main.setAIPrompt(promptInput.value);
+    });
+    
+    // Handle key events and prevent them from propagating to the main app
+    promptInput.addEventListener('keydown', (e) => {
+      e.stopPropagation();
+      if (e.key === 'Enter') {
+        promptInput.blur();
+      }
+    });
+    
+    promptInput.addEventListener('keyup', (e) => {
+      e.stopPropagation();
+    });
+    
+    promptInput.addEventListener('keypress', (e) => {
+      e.stopPropagation();
+    });
+    
+    // Handle focus events
+    promptInput.addEventListener('focus', (e) => {
+      e.stopPropagation();
+      // Signal to main app that GUI has focus
+      this._main._focusGui = true;
+    });
+    
+    promptInput.addEventListener('blur', (e) => {
+      e.stopPropagation();
+      // Signal to main app that GUI lost focus
+      this._main._focusGui = false;
+    });
+    
+    // Clear the container and add the input
+    ctrlPrompt.domContainer.innerHTML = '';
+    ctrlPrompt.domContainer.appendChild(promptInput);
+    
+    // Store reference for potential updates
+    this._promptInput = promptInput;
+  }
+
+  updateAIPromptInput() {
+    if (this._promptInput) {
+      this._promptInput.value = this._main.getAIPrompt() || '';
+    }
+  }
+
   initAISettings(guiParent) {
     var menu = guiParent.addMenu('AI Settings');
     
@@ -197,20 +283,21 @@ class Gui {
   onStyleChange(value) {
     // Convert numeric index back to string value
     var styleValue = value === 0 ? 'basic' : 'hairy cute';
-    this._main._aiStyle = styleValue;
+    this._main.setAIStyle(styleValue);
     console.log('AI Style changed to:', styleValue);
     // Add any additional logic for style changes here
   }
 
   onAIStrengthChange(value) {
-    this._main._aiStrength = value;
+    this._main.setAIStrength(value);
     console.log('AI Strength changed to:', value);
     // Add any additional logic for AI strength changes here
   }
 
   onRandomizeSeed() {
-    this._main._aiSeed = Math.floor(Math.random() * 99000) + 1000;
-    console.log('AI Seed randomized to:', this._main._aiSeed);
+    var newSeed = Math.floor(Math.random() * 99000) + 1000;
+    this._main.setAISeed(newSeed);
+    console.log('AI Seed randomized to:', newSeed);
     // Add any additional logic for seed randomization here
   }
 
