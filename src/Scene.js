@@ -78,6 +78,11 @@ class Scene {
     this._aiStyle = 'basic'; // Style setting: 'basic' or 'hairy cute'
     this._aiStrength = 50; // AI strength: 0-100
     this._aiSeed = Math.floor(Math.random() * 99000) + 1000; // Random seed: 1000-100000
+    
+    // WebSocket connection for AI processing
+    this._websocket = null;
+    this._userId = this._getUserId();
+    this._isProcessing = false;
   }
 
   start() {
@@ -100,6 +105,9 @@ class Scene {
     this.loadTextures();
     this._gui.initGui();
     this.onCanvasResize();
+    
+    // Initialize WebSocket connection
+    this._initWebSocket();
 
     var modelURL = getOptionsURL().modelurl;
     if (modelURL) this.addModelURL(modelURL);
@@ -277,17 +285,147 @@ class Scene {
     try {
       var canvas = this._canvas;
       var screenshotImg = document.getElementById('canvas-screenshot');
-      if (canvas && screenshotImg) {
+      if (canvas && screenshotImg && this._websocket && this._websocket.readyState === WebSocket.OPEN && !this._isProcessing) {
         var dataURL = canvas.toDataURL('image/jpeg', 0.9);
         if (dataURL !== this._lastscreenshot) {
-          screenshotImg.src = dataURL;
-          console.log('Screenshot updated');
+          this._lastscreenshot = dataURL;
+          this._processScreenshotWithAI(dataURL, screenshotImg);
         }
-        this._lastscreenshot = dataURL;
       }
     } catch (e) {
       console.warn('Failed to capture screenshot:', e);
     }
+  }
+
+  _getUserId() {
+    let userId = localStorage.getItem('sculptgl_user_id');
+    if (!userId) {
+      userId = Math.floor(Math.random() * 900000) + 100000; // Generate 6-digit random number
+      localStorage.setItem('sculptgl_user_id', userId.toString());
+    }
+    return userId;
+  }
+
+  _initWebSocket() {
+    try {
+      this._websocket = new WebSocket(`ws://localhost:8765?userid=${this._userId}`);
+      
+      this._websocket.onopen = () => {
+        console.log('WebSocket connected');
+        // Send initial settings
+        this._sendAISettings();
+      };
+      
+      this._websocket.onmessage = (event) => {
+        if (typeof event.data === 'string') {
+          try {
+            const message = JSON.parse(event.data);
+            if (message.status === 'settings_saved') {
+              console.log('AI settings saved successfully');
+            } else if (message.error) {
+              console.error('Server error:', message.error);
+            }
+          } catch (e) {
+            console.error('Failed to parse server message:', e);
+          }
+        } else {
+          // Binary data - processed image
+          this._handleProcessedImage(event.data);
+        }
+      };
+      
+      this._websocket.onclose = () => {
+        console.log('WebSocket disconnected');
+        // Attempt to reconnect after 3 seconds
+        setTimeout(() => this._initWebSocket(), 3000);
+      };
+      
+      this._websocket.onerror = (error) => {
+        console.error('WebSocket error:', error);
+      };
+    } catch (e) {
+      console.error('Failed to initialize WebSocket:', e);
+    }
+  }
+
+  _sendAISettings() {
+    if (this._websocket && this._websocket.readyState === WebSocket.OPEN) {
+      const settings = {
+        style: this._aiStyle,
+        strength: this._aiStrength,
+        seed: this._aiSeed
+      };
+      this._websocket.send(JSON.stringify(settings));
+    }
+  }
+
+  _processScreenshotWithAI(dataURL, screenshotImg) {
+    if (this._isProcessing) return;
+    
+    this._isProcessing = true;
+    
+    // Convert data URL to blob
+    const base64Data = dataURL.split(',')[1];
+    const byteCharacters = atob(base64Data);
+    const byteNumbers = new Array(byteCharacters.length);
+    for (let i = 0; i < byteCharacters.length; i++) {
+      byteNumbers[i] = byteCharacters.charCodeAt(i);
+    }
+    const byteArray = new Uint8Array(byteNumbers);
+    
+    // Send binary data to server
+    this._websocket.send(byteArray);
+    console.log('Screenshot sent for AI processing');
+  }
+
+  _handleProcessedImage(binaryData) {
+    try {
+      // Convert binary data back to data URL
+      const blob = new Blob([binaryData], { type: 'image/jpeg' });
+      const reader = new FileReader();
+      
+      reader.onload = () => {
+        const screenshotImg = document.getElementById('canvas-screenshot');
+        if (screenshotImg) {
+          screenshotImg.src = reader.result;
+          console.log('AI-processed screenshot updated');
+        }
+        this._isProcessing = false;
+      };
+      
+      reader.readAsDataURL(blob);
+    } catch (e) {
+      console.error('Failed to handle processed image:', e);
+      this._isProcessing = false;
+    }
+  }
+
+  // Public methods to update AI settings
+  setAIStyle(style) {
+    this._aiStyle = style;
+    this._sendAISettings();
+  }
+
+  setAIStrength(strength) {
+    this._aiStrength = strength;
+    this._sendAISettings();
+  }
+
+  setAISeed(seed) {
+    this._aiSeed = seed;
+    this._sendAISettings();
+  }
+
+  getAIStyle() {
+    return this._aiStyle;
+  }
+
+  getAIStrength() {
+    return this._aiStrength;
+  }
+
+  getAISeed() {
+    return this._aiSeed;
   }
 
   _drawScene() {
