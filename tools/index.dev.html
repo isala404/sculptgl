@@ -37,8 +37,13 @@
   <input type='file' id='textureopen' style='display: none' />
   <input type='file' id='matcapopen' style='display: none' />
 
-  <div id='viewport'>
-    <canvas id='canvas'></canvas>
+  <div id='split-container'>
+    <div id='left-panel'>
+      <img id='canvas-screenshot' src='' alt='Canvas Screenshot' />
+    </div>
+    <div id='viewport'>
+      <canvas id='canvas'></canvas>
+    </div>
   </div>
 
   <script src='sculptgl.js'></script>

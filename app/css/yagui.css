@@ -19,13 +19,38 @@ body {
   margin: 0;
 }
 
+#split-container {
+  display: flex;
+  width: 100vw;
+  height: 100vh;
+}
+
+#left-panel {
+  width: 50%;
+  height: 100%;
+  background-color: red;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding-top: 40px;
+}
+
+#canvas-screenshot {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+}
+
 #tablet-plugin {
   position: absolute;
   top: -1000px;
 }
 
 #viewport {
-  position: absolute;
+  position: relative;
+  width: 50%;
+  height: 100%;
+  box-sizing: border-box;
 }
 
 #canvas {
@@ -416,7 +441,9 @@ body {
   padding-right: 10px;
   padding-left: 10px;
   z-index: 1;
-  float: left;
+  top: 0;
+  left: 0;
+  height: 40px;
 }
 
 .gui-topbar ul {

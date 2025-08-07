@@ -87,6 +87,7 @@ class Scene {
     this._rttMerge = new Rtt(this._gl, Enums.Shader.MERGE, null);
     this._rttOpaque = new Rtt(this._gl, Enums.Shader.FXAA);
     this._rttTransparent = new Rtt(this._gl, null, this._rttOpaque.getDepth(), true);
+    this._lastscreenshot = null;
 
     this._grid = Primitives.createGrid(this._gl);
     this.initGrid();
@@ -261,7 +262,27 @@ class Scene {
 
     gl.enable(gl.DEPTH_TEST);
 
+    // Capture screenshot and update left panel
+    this._updateScreenshot();
+
     this._sculptManager.postRender(); // draw sculpting gizmo stuffs
+  }
+
+  _updateScreenshot() {
+    try {
+      var canvas = this._canvas;
+      var screenshotImg = document.getElementById('canvas-screenshot');
+      if (canvas && screenshotImg) {
+        var dataURL = canvas.toDataURL('image/jpeg', 0.9);
+        if (dataURL !== this._lastscreenshot) {
+          screenshotImg.src = dataURL;
+          console.log('Screenshot updated');
+        }
+        this._lastscreenshot = dataURL;
+      }
+    } catch (e) {
+      console.warn('Failed to capture screenshot:', e);
+    }
   }
 
   _drawScene() {
