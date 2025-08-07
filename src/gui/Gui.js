@@ -66,6 +66,9 @@ class Gui {
     ctrls[idc++] = this._ctrlConfig = new GuiConfig(this._topbar, this);
     ctrls[idc++] = this._ctrlMesh = new GuiMesh(this._topbar, this);
 
+    // AI Settings Menu
+    this._ctrlAISettings = this.initAISettings(this._topbar);
+
     // Initialize the sidebar
     this._sidebar = this._guiMain.addRightSidebar();
     ctrls[idc++] = this._ctrlRendering = new GuiRendering(this._sidebar, this);
@@ -170,6 +173,45 @@ class Gui {
     ctrlAbout.domContainer.addEventListener('mousedown', function () {
       window.open('http://stephaneginier.com', '_blank');
     });
+  }
+
+  initAISettings(guiParent) {
+    var menu = guiParent.addMenu('AI Settings');
+    
+    // Style dropdown
+    var styleOptions = [];
+    styleOptions[0] = 'Basic';
+    styleOptions[1] = 'Hairy Cute';
+    var currentStyleIndex = this._main._aiStyle === 'basic' ? 0 : 1;
+    menu.addCombobox('Style', currentStyleIndex, this.onStyleChange.bind(this), styleOptions);
+    
+    // AI Strength slider (0-100)
+    menu.addSlider('AI Strength', this._main._aiStrength, this.onAIStrengthChange.bind(this), 0, 100, 1);
+    
+    // Randomize button
+    menu.addButton('Randomize', this, 'onRandomizeSeed');
+    
+    return menu;
+  }
+
+  onStyleChange(value) {
+    // Convert numeric index back to string value
+    var styleValue = value === 0 ? 'basic' : 'hairy cute';
+    this._main._aiStyle = styleValue;
+    console.log('AI Style changed to:', styleValue);
+    // Add any additional logic for style changes here
+  }
+
+  onAIStrengthChange(value) {
+    this._main._aiStrength = value;
+    console.log('AI Strength changed to:', value);
+    // Add any additional logic for AI strength changes here
+  }
+
+  onRandomizeSeed() {
+    this._main._aiSeed = Math.floor(Math.random() * 99000) + 1000;
+    console.log('AI Seed randomized to:', this._main._aiSeed);
+    // Add any additional logic for seed randomization here
   }
 
   updateMesh() {

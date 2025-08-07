@@ -73,6 +73,11 @@ class Scene {
     this._drawFullScene = false; // render everything on the rtt
     this._autoMatrix = opts.scalecenter; // scale and center the imported meshes
     this._vertexSRGB = true; // srgb vs linear colorspace for vertex color
+    
+    // AI Style properties
+    this._aiStyle = 'basic'; // Style setting: 'basic' or 'hairy cute'
+    this._aiStrength = 50; // AI strength: 0-100
+    this._aiSeed = Math.floor(Math.random() * 99000) + 1000; // Random seed: 1000-100000
   }
 
   start() {
