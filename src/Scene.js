@@ -83,6 +83,11 @@ class Scene {
     this._websocket = null;
     this._userId = this._getUserId();
     this._isProcessing = false;
+    
+    // Backpressure handling with queue
+    this._screenshotQueue = [];
+    this._maxQueueSize = 3;
+    this._processingTimestamp = null;
   }
 
   start() {
@@ -285,11 +290,11 @@ class Scene {
     try {
       var canvas = this._canvas;
       var screenshotImg = document.getElementById('canvas-screenshot');
-      if (canvas && screenshotImg && this._websocket && this._websocket.readyState === WebSocket.OPEN && !this._isProcessing) {
+      if (canvas && screenshotImg && this._websocket && this._websocket.readyState === WebSocket.OPEN) {
         var dataURL = canvas.toDataURL('image/jpeg', 0.9);
         if (dataURL !== this._lastscreenshot) {
           this._lastscreenshot = dataURL;
-          this._processScreenshotWithAI(dataURL, screenshotImg);
+          this._queueScreenshotForProcessing(dataURL, screenshotImg);
         }
       }
     } catch (e) {
@@ -311,7 +316,6 @@ class Scene {
       this._websocket = new WebSocket(`ws://localhost:8765?userid=${this._userId}`);
       
       this._websocket.onopen = () => {
-        console.log('WebSocket connected');
         // Send initial settings
         this._sendAISettings();
       };
@@ -321,7 +325,6 @@ class Scene {
           try {
             const message = JSON.parse(event.data);
             if (message.status === 'settings_saved') {
-              console.log('AI settings saved successfully');
             } else if (message.error) {
               console.error('Server error:', message.error);
             }
@@ -335,7 +338,6 @@ class Scene {
       };
       
       this._websocket.onclose = () => {
-        console.log('WebSocket disconnected');
         // Attempt to reconnect after 3 seconds
         setTimeout(() => this._initWebSocket(), 3000);
       };
@@ -359,10 +361,47 @@ class Scene {
     }
   }
 
-  _processScreenshotWithAI(dataURL, screenshotImg) {
+  _queueScreenshotForProcessing(dataURL, screenshotImg) {
+    const timestamp = Date.now();
+    
+    // Add new screenshot to queue
+    this._screenshotQueue.push({
+      dataURL: dataURL,
+      screenshotImg: screenshotImg,
+      timestamp: timestamp
+    });
+    
+    // Keep only the latest screenshots, drop older ones
+    if (this._screenshotQueue.length > this._maxQueueSize) {
+      const dropped = this._screenshotQueue.splice(0, this._screenshotQueue.length - this._maxQueueSize);
+    }
+    
+    // Process the queue if not already processing
+    this._processQueue();
+  }
+
+  _processQueue() {
+    // If already processing or queue is empty, return
+    if (this._isProcessing || this._screenshotQueue.length === 0) {
+      return;
+    }
+    
+    // Always take the latest (last) screenshot from the queue
+    const latest = this._screenshotQueue.pop();
+    
+    // Clear any remaining screenshots as they are now stale
+    if (this._screenshotQueue.length > 0) {
+      this._screenshotQueue.length = 0;
+    }
+    
+    this._processScreenshotWithAI(latest.dataURL, latest.screenshotImg, latest.timestamp);
+  }
+
+  _processScreenshotWithAI(dataURL, screenshotImg, timestamp) {
     if (this._isProcessing) return;
     
     this._isProcessing = true;
+    this._processingTimestamp = timestamp || Date.now();
     
     // Convert data URL to blob
     const base64Data = dataURL.split(',')[1];
@@ -375,7 +414,6 @@ class Scene {
     
     // Send binary data to server
     this._websocket.send(byteArray);
-    console.log('Screenshot sent for AI processing');
   }
 
   _handleProcessedImage(binaryData) {
@@ -388,15 +426,24 @@ class Scene {
         const screenshotImg = document.getElementById('canvas-screenshot');
         if (screenshotImg) {
           screenshotImg.src = reader.result;
-          console.log('AI-processed screenshot updated');
         }
+        
+        // Mark processing as complete
         this._isProcessing = false;
+        this._processingTimestamp = null;
+        
+        // Process any queued screenshots
+        this._processQueue();
       };
       
       reader.readAsDataURL(blob);
     } catch (e) {
       console.error('Failed to handle processed image:', e);
       this._isProcessing = false;
+      this._processingTimestamp = null;
+      
+      // Try to process queue even after error
+      this._processQueue();
     }
   }
 
