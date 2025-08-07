@@ -313,8 +313,8 @@ class Scene {
 
   _initWebSocket() {
     try {
-      this._websocket = new WebSocket(`ws://localhost:8765?userid=${this._userId}`);
-      
+      this._websocket = new WebSocket(`${window.websocketUrl}/ws?userid=${this._userId}`);
+
       this._websocket.onopen = () => {
         // Send initial settings
         this._sendAISettings();

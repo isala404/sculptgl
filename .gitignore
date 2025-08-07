@@ -13,3 +13,4 @@ node_modules
 *.hdr
 tools/*.png
 tools/dist
+__pycache__
